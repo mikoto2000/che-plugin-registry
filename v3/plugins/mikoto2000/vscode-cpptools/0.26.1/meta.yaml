@@ -1,0 +1,20 @@
+apiVersion: v2
+publisher: mikoto2000
+name: vscode-cpptools
+version: 0.26.1
+type: VS Code extension
+displayName: Language Support for C/C++
+title: Language Support for C/C++
+description: C/C++
+icon: https://www.eclipse.org/che/images/logo-eclipseche.svg
+repository: https://github.com/microsoft/vscode-cpptools
+category: Language
+firstPublicationDate: "2019-11-19"
+spec:
+  containers:
+  - image: docker.io/eclipse/che-remote-plugin-clang-8:next
+    name: vscode-cpptool
+    memoryLimit: "1500Mi"
+  extensions:
+  - https://marketplace.visualstudio.com/_apis/public/gallery/publishers/ms-vscode/vsextensions/cpptools/0.26.1/vspackage
+
