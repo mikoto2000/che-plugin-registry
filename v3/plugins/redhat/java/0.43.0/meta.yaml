@@ -10,9 +10,12 @@ icon: https://www.eclipse.org/che/images/logo-eclipseche.svg
 repository: https://github.com/redhat-developer/vscode-java
 category: Language
 firstPublicationDate: "2019-04-25"
+deprecate:
+  automigrate: true
+  migrateTo: redhat/java/latest
 spec:
   containers:
-    - image: "docker.io/eclipse/che-remote-plugin-runner-java8:next"
+    - image: "quay.io/eclipse/che-sidecar-java:8-0cfbacb"
       name: vscode-java
       memoryLimit: "1500Mi"
   extensions:

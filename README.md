@@ -6,38 +6,49 @@
 
 # Eclipse Che plugin registry
 
-## Build Eclipse Che plugin registry container image
+This repository holds ready-to-use plugins for different languages and technologies.
 
-Most of the time you won't need to rebuild the image because we build ```quay.io/eclipse/che-plugin-registry:nightly``` after every commit in master. In case you needed to change the content of the registry (e.g. add or modify some plugins meta.yaml) you can build your own image executing:
+## Building and publishing third party VSIX extensions for plugin registry
+See: https://github.com/redhat-developer/codeready-workspaces/blob/master/devdoc/building/build-vsix-extension.adoc
 
-```shell
-docker build --no-cache -t quay.io/eclipse/che-plugin-registry:nightly --target registry .
+## Build registry container image
+
+This repository contains a `build.sh` script at its root that can be used to build the registry:
+```
+Usage: ./build.sh [OPTIONS]
+Options:
+    --help
+        Print this message.
+    --tag, -t [TAG]
+        Docker image tag to be used for image; default: 'nightly'
+    --registry, -r [REGISTRY]
+        Docker registry to be used for image; default 'quay.io'
+    --organization, -o [ORGANIZATION]
+        Docker image organization to be used for image; default: 'eclipse'
+    --latest-only
+        Build registry to only contain 'latest' meta.yamls; default: 'false'
+    --offline
+        Build offline version of registry, with all artifacts included
+        cached in the registry; disabled by default.
+    --rhel
+        Build using the rhel.Dockerfile (UBI images) instead of default
 ```
 
-Where `--no-cache` is needed to prevent usage of cached layers with plugin registry files.
-Useful when you change plugin metadata files and rebuild the image.
-
-Note that the Dockerfiles feature multi-stage build, so it requires Docker version 17.05 or higher.
+Note that the Dockerfiles in this repository utilize multi-stage builds, so Docker version 17.05 or higher is required.
 
 ### Offline and airgapped registry images
 
-It's possible to build an image for the plugin registry that includes all referenced extension artifacts (i.e. all `.theia` and `.vsix` archives). This is done using the same `Dockerfile`, but performs additional steps to download artifacts and rewrite the plugin meta.yamls to use files cached in `v3/resources/`.
+Using the `--offline` option in `build.sh` will build the registry to contain all referenced extension artifacts (i.e. all `.theia` and `.vsix` archives). The offline version of the plugin registry is useful in network-limited scenarios, as it avoids the need to download plugin extensions from the outside internet.
 
-```shell
-docker build --no-cache -t quay.io/eclipse/che-plugin-registry:offline --target offline-registry .
-```
+## Deploy the registry to OpenShift
 
-Note that support for relative extensions was added in `v0.20` of the plugin broker.
-
-## Run Eclipse Che plugin registry on OpenShift
-
-You can deploy Che plugin registry on Openshift with command.
+You can deploy the registry to Openshift as follows:
 
 ```bash
-  oc new-app -f openshift/che-plugin-registry.yml \
+  oc new-app -f deploy/openshift/che-plugin-registry.yml \
              -p IMAGE="quay.io/eclipse/che-plugin-registry" \
              -p IMAGE_TAG="nightly" \
-             -p PULL_POLICY="IfNotPresent"
+             -p PULL_POLICY="Always"
 ```
 
 ## Run Eclipse Che plugin registry on Kubernetes
@@ -45,7 +56,6 @@ You can deploy Che plugin registry on Openshift with command.
 You can deploy Che plugin registry on Kubernetes using [helm](https://docs.helm.sh/). For example if you want to deploy it in the namespace `kube-che` and you are using `minikube` you can use the following command.
 
 ```bash
-
 NAMESPACE="kube-che"
 DOMAIN="$(minikube ip).nip.io"
 helm upgrade --install che-plugin-registry \
@@ -53,18 +63,15 @@ helm upgrade --install che-plugin-registry \
     --namespace ${NAMESPACE} \
     --set global.ingressDomain=${DOMAIN} \
     ./kubernetes/che-plugin-registry/
-
 ```
 
 You can use the following command to uninstall it.
 
 ```bash
-
 helm delete --purge che-plugin-registry
-
 ```
 
-## Run Eclipse Che plugin registry using Docker
+## Run the registry 
 
 ```bash
 docker run -it  --rm  -p 8080:8080 quay.io/eclipse/che-plugin-registry:nightly
@@ -83,14 +90,14 @@ type:                  # plugin type; e.g. "Theia plugin", "Che Editor"
 displayName:           # name shown in user dashboard
 title:                 # plugin title
 description:           # short description of plugin's purpose
-icon:                  # link to SVG icon
+icon:                  # link to SVG or PNG icon
 repository:            # URL for plugin (e.g. Github repo)
 category:              # see [1]
 firstPublicationDate:  # optional; see [2]
 latestUpdateDate:      # optional; see [3]
 deprecate:             # optional; section for deprecating plugins in favor of others
   autoMigrate:         # boolean
-  migrateTo:           # new plugin id
+  migrateTo:           # new org/plugin-id/version, e.g. redhat/vscode-apache-camel/latest
 spec:                  # spec (used to be che-plugin.yaml)
   endpoints:           # optional; plugin endpoints -- see https://www.eclipse.org/che/docs/che-6/servers.html for more details
     - name:
@@ -106,7 +113,10 @@ spec:                  # spec (used to be che-plugin.yaml)
   containers:          # optional; sidecar containers for plugin
     - image:
       name:              # name used for sidecar container
-      memorylimit:       # Kubernetes/OpenShift-spec memory limit string (e.g. "512Mi")
+      memoryLimit:       # Kubernetes/OpenShift-spec memory limit string (e.g. "512Mi"). Refer to https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#meaning-of-memory for details.
+      memoryRequest:     # Kubernetes/OpenShift-spec memory request string (e.g. "256Mi"). Refer to https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#meaning-of-memory for details.
+      cpuLimit:          # Kubernetes/OpenShift-spec CPU limit string (e.g. "500m"). Refer to https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#meaning-of-cpu for details.
+      cpuRequest:        # Kubernetes/OpenShift-spec CPU request string (e.g. "125m"). Refer to https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#meaning-of-cpu for details.
       env:               # list of env vars to set in sidecar
         - name:
           value:
@@ -129,6 +139,21 @@ spec:                  # spec (used to be che-plugin.yaml)
             - -rf
             - /cache/.m2/repository
       mountSources:      # boolean
+      lifecycle:         # container lifecycle hooks -- see https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+        postStart:       # the postStart event immediately after a Container is started -- see https://kubernetes.io/docs/tasks/configure-pod-container/attach-handler-lifecycle-event/
+          exec:          # Executes a specific command, resources consumed by the command are counted against the Container
+            command: ["/bin/sh", "-c", "/bin/post-start.sh"]  # Command is the command line to execute inside the container, the working directory for the command is root ('/') 
+                                                              # in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell
+                                                              # instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status 
+                                                              # of 0 is treated as live/healthy and non-zero is unhealthy
+                                                              # -- see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#execaction-v1-core
+        preStop:         # the preStop event immediately before the Container is terminated -- see https://kubernetes.io/docs/tasks/configure-pod-container/attach-handler-lifecycle-event/
+          exec:          # Executes a specific command, resources consumed by the command are counted against the Container
+            command: ["/bin/sh","-c","/bin/pre-stop.sh"]      # Command is the command line to execute inside the container, the working directory for the command is root ('/') 
+                                                              # in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell
+                                                              # instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status 
+                                                              # of 0 is treated as live/healthy and non-zero is unhealthy
+                                                              # -- see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#execaction-v1-core
   initContainers:      # optional; init containers for sidecar plugin
     - image:
       name:              # name used for sidecar container

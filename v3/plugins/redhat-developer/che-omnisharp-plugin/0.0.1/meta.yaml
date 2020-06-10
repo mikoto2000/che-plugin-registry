@@ -10,9 +10,12 @@ icon: https://www.eclipse.org/che/images/logo-eclipseche.svg
 repository: https://github.com/redhat-developer/omnisharp-theia-plugin
 category: Language
 firstPublicationDate: "2019-03-13"
+deprecate:
+  automigrate: true
+  migrateTo: redhat-developer/che-omnisharp-plugin/latest
 spec:
   containers:
-  - image: "docker.io/eclipse/che-remote-plugin-dotnet-2.2.105:next"
+  - image: "quay.io/eclipse/che-sidecar-dotnet:2.2.105-2fd6e78"
     name: theia-omnisharp
     memoryLimit: "1024Mi"
   extensions:

@@ -10,9 +10,12 @@ icon: https://www.eclipse.org/che/images/logo-eclipseche.svg
 repository: https://github.com/redhat-developer/vscode-yaml
 category: Language
 firstPublicationDate: "2019-02-20"
+deprecate:
+  automigrate: false
+  migrateTo: redhat/vscode-yaml/latest
 spec:
   containers:
-    - image: "docker.io/eclipse/che-remote-plugin-node:next"
+    - image: "quay.io/eclipse/che-sidecar-node:10-0cb5d78"
       name: vscode-yaml
       memoryLimit: "256Mi"
   extensions:
